@@ -29,10 +29,10 @@ const services = [
 ];
 
 const socials = [
-  { icon: FaFacebook, label: "Facebook", href: "#" },
-  { icon: FaTwitter, label: "Twitter", href: "#" },
-  { icon: FaLinkedin, label: "LinkedIn", href: "#" },
-  { icon: FaGithub, label: "GitHub", href: "#" },
+  { icon: FaLinkedin, label: "LinkedIn", href: "https://linkedin.com"
+              },
+  { icon: FaGithub, label: "GitHub", href: "https://github.com"
+               },
 ];
 
 function Footer() {

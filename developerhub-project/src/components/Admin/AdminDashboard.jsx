@@ -115,7 +115,7 @@ const Dashboard = () => {
         <header className="bg-white shadow px-6 py-4 flex justify-between items-center">
           <h1 className="text-lg md:text-2xl font-bold">Admin Dashboard</h1>
           <div className="text-sm text-gray-600 hidden sm:block">
-            Welcome, Admin 👋
+            Welcome, Admin 
           </div>
         </header>
 

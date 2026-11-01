@@ -8,10 +8,22 @@ function Navbar() {
     <nav className="fixed top-0 left-0 w-full z-50 bg-transparent">
       <div className="max-w-7xl mx-auto flex items-center px-6 py-4 relative">
 
-        {/* Logo (Left) */}
-        <h1 className="text-white text-2xl font-bold">
-          DevelopersHub
-        </h1>
+        <Link to="/" className="flex items-center gap-2 min-w-fit">
+        <img
+          src="/src/assets/logo.png"
+          alt="logo"
+          className="w-13 h-12 sm:w-11 sm:h-11 object-contain"
+        />
+
+        <div className="flex flex-col leading-tight sm:items-center items-start sm:ml-0 -ml-1">
+          <h1 className="font-extrabold text-lg tracking-wide flex items-center text-white">
+            Developers<span className="text-blue-500">Hub</span>
+          </h1>
+          <span className="text-[10px] text-gray-400 tracking-[3px] uppercase">
+            Corporation
+          </span>
+        </div>
+      </Link>
 
         {/* Center Menu */}
         <ul className="hidden md:flex space-x-8 text-white font-medium absolute left-1/2 transform -translate-x-1/2">

@@ -1,250 +1,288 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  FaBars,
-  FaTimes,
-  FaEnvelope,
   FaTrash,
-  FaEye,
   FaCheckCircle,
-  FaTachometerAlt,
-  FaCode,
-  FaBlog,
-  FaBriefcase,
-  FaCalendarAlt,
+  FaExclamationCircle,
+  FaArrowLeft,
+  FaReply,
+  FaEnvelopeOpenText,
 } from "react-icons/fa";
+import AdminLayout from "./AdminLayout";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const TOKEN_KEY = "token"; // AdminLayout wale jaisa rakho
+
+const authHeader = () => {
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const formatDate = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d)) return String(value);
+  return d.toLocaleString("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const getTime = (m) => new Date(m.createdAt || m.date || 0).getTime() || 0;
 
 const AdminContacts = () => {
-  const [open, setOpen] = useState(false);
-
   const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [notice, setNotice] = useState(null);
 
-  const [selected, setSelected] = useState(null);
+  const showNotice = (type, text) => {
+    setNotice({ type, text });
+    setTimeout(() => setNotice(null), 3500);
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const res = await fetch(`${API_URL}/contacts`, { headers: authHeader() });
+
+      if (res.status === 401 || res.status === 403) throw new Error("auth");
+      if (!res.ok) throw new Error("failed");
+
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : [];
+      setMessages([...list].sort((a, b) => getTime(b) - getTime(a)));
+    } catch (err) {
+      showNotice(
+        "error",
+        err.message === "auth"
+          ? "Session expire ho gayi. Dobara login karo."
+          : "Messages load nahi ho sakay. Kya backend chal raha hai?"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-  const token = localStorage.getItem("token");
+    fetchMessages();
+  }, []);
 
-  fetch("http://localhost:5000/api/contacts", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then(res => res.json())
-    .then(data => setMessages(data))
-    .catch(err => console.log(err));
-}, []);
+  const selected = messages.find((m) => m._id === selectedId) || null;
+  const unreadCount = messages.filter((m) => !m.read).length;
+  const visible = filter === "unread" ? messages.filter((m) => !m.read) : messages;
 
   const markAsRead = async (id) => {
-  const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_URL}/contacts/${id}`, {
+        method: "PUT",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error("failed");
 
-  await fetch(`http://localhost:5000/api/contacts/${id}`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  setMessages(prev =>
-    prev.map(m => (m._id === id ? { ...m, read: true } : m))
-  );
-};
+      setMessages((prev) => prev.map((m) => (m._id === id ? { ...m, read: true } : m)));
+    } catch (err) {
+      showNotice("error", "Mark read nahi ho saka.");
+    }
+  };
 
   const deleteMessage = async (id) => {
-  const token = localStorage.getItem("token");
+    if (!window.confirm("Kya tum is message ko delete karna chahti ho?")) return;
 
-  await fetch(`http://localhost:5000/api/contacts/${id}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+    try {
+      const res = await fetch(`${API_URL}/contacts/${id}`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error("failed");
 
-  setMessages(prev => prev.filter(m => m._id !== id));
-};
-// ✅ CLOSE MESSAGE
-  const closeMessage = () => {
-    setSelected(null);
+      setMessages((prev) => prev.filter((m) => m._id !== id));
+      if (selectedId === id) setSelectedId(null);
+      showNotice("success", "Message delete ho gaya.");
+    } catch (err) {
+      showNotice("error", "Delete nahi ho saka.");
+    }
   };
-  
+
   return (
-  <div className="flex min-h-screen bg-gray-50 text-gray-800 w-full relative">
-
-    {/* MOBILE TOP BAR */}
-    <div className="md:hidden fixed top-0 left-0 right-0 bg-gray-900 text-white flex items-center justify-between px-4 py-3 z-50">
-      <h2 className="font-bold">DeveloperHub</h2>
-      <button onClick={() => setOpen(!open)}>
-        {open ? <FaTimes /> : <FaBars />}
-      </button>
-    </div>
-
-    {/* SIDEBAR */}
-    <aside
-      className={`fixed top-0 left-0 h-full w-68 bg-gray-900 text-gray-300 shadow-lg transform transition-transform duration-300 z-40
-      ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+    <AdminLayout
+      title="Manage Client Messages"
+      subtitle={
+        loading ? "Loading..." : `${messages.length} messages • ${unreadCount} unread`
+      }
     >
-      <div className="p-6 pt-16 md:pt-6">
-        <h2 className="text-2xl font-bold text-white mb-10">DeveloperHub</h2>
-
-        <nav className="space-y-2">
-
-  <Link to="/admin/admin-dashboard">
-    <div className="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-gray-800 transition">
-      <FaTachometerAlt />
-      <span>Dashboard</span>
-    </div>
-  </Link>
-
-  <Link to="/admin/admin-service">
-    <div className="flex items-center gap-3 p-3 mb-2 rounded-lg hover:bg-gray-800 transition">
-      <FaCode />
-      <span>Services</span>
-    </div>
-  </Link>
-
-  <Link to="/admin/admin-blog">
-    <div className="flex items-center gap-3 p-3 mb-2 rounded-lg hover:bg-gray-800 transition">
-      <FaBlog />
-      <span>Blogs</span>
-    </div>
-  </Link>
-
-  <Link to="/admin/admin-portfolio">
-    <div className="flex items-center gap-3 p-3 mb-2 rounded-lg hover:bg-gray-800 transition">
-      <FaBriefcase />
-      <span>Portfolio</span>
-    </div>
-  </Link>
-
-  <Link to="/admin/admin-contact">
-    <div className="flex items-center gap-3 p-3 mb-2 rounded-lg bg-gray-800 text-white">
-      <FaEnvelope />
-      <span>Messages</span>
-    </div>
-  </Link>
-
-  <Link to="/admin/admin-booking">
-    <div className="flex items-center gap-3 mb-2 p-3 rounded-lg hover:bg-gray-800 transition">
-      <FaCalendarAlt />
-      <span>Bookings</span>
-    </div>
-  </Link>
-
-</nav>
-      </div>
-    </aside>
-
-    {/* OVERLAY */}
-    {open && (
-      <div
-        className="fixed inset-0 bg-black/50 md:hidden z-30"
-        onClick={() => setOpen(false)}
-      />
-    )}
-
-    {/* MAIN */}
-   <div className="flex-1 md:pl-64 w-full min-h-screen">
-
-      {/* HEADER */}
-      <header className="bg-white shadow px-4 md:px-6 py-4 flex justify-between items-center mt-14 md:mt-0">
-        <h1 className="text-base md:text-2xl font-bold">
-          Manage Client Messages
-        </h1>
-        <span className="text-xs md:text-sm text-gray-500">Admin Panel</span>
-      </header>
-
-      {/* CONTENT */}
-      <main className="p-3 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 w-full">
-
-        {/* MESSAGE LIST */}
-        <div className="lg:col-span-1 space-y-3 pr-1">
-          {messages.map((msg, i) => (
-            <motion.div
-              key={msg._id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              onClick={() => setSelected(msg)}
-              className={`p-3 md:p-4 rounded-xl shadow cursor-pointer border transition
-              ${msg.read ? "bg-white" : "bg-blue-50 border-blue-200"}`}
-            >
-              <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-sm md:text-base">
-                  {msg.name}
-                </h3>
-
-                {!msg.read && (
-                  <span className="text-xs text-blue-600">New</span>
-                )}
-              </div>
-
-              <p className="text-xs text-gray-500">{msg.email}</p>
-
-              <p className="text-xs md:text-sm text-gray-600 truncate">
-                {msg.message}
-              </p>
-            </motion.div>
-          ))}
+      {/* NOTICE */}
+      {notice && (
+        <div
+          className={`max-w-6xl mx-auto mb-6 flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium ${
+            notice.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {notice.type === "success" ? <FaCheckCircle /> : <FaExclamationCircle />}
+          {notice.text}
         </div>
+      )}
 
-        {/* MESSAGE VIEW */}
-        <div className="lg:col-span-2">
-          {selected ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white p-4 md:p-6 rounded-2xl shadow-lg"
-            >
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg md:text-xl font-bold">
-                  {selected.name}
-                </h2>
+      {loading ? (
+        <p className="text-center text-gray-500">Loading messages...</p>
+      ) : messages.length === 0 ? (
+        <div className="max-w-6xl mx-auto bg-white rounded-xl shadow p-10 text-center text-gray-500">
+          Abhi koi message nahi aaya.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto">
 
+          {/* MESSAGE LIST */}
+          <div className={`lg:col-span-1 ${selected ? "hidden lg:block" : "block"}`}>
+            {/* FILTER TABS */}
+            <div className="flex gap-2 mb-4">
+              {[
+                { key: "all", label: `All (${messages.length})` },
+                { key: "unread", label: `Unread (${unreadCount})` },
+              ].map((tab) => (
                 <button
-                  onClick={closeMessage}
-                  className="text-gray-500 hover:text-gray-700 text-sm"
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={`px-4 py-2 text-sm rounded-lg font-medium transition ${
+                    filter === tab.key
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                  }`}
                 >
-                  ✕ Close
+                  {tab.label}
                 </button>
-              </div>
-
-              <p className="text-xs md:text-sm text-gray-500 mb-4">
-                {selected.email} • {selected.date}
-              </p>
-
-              <p className="text-gray-700 mb-6 text-sm md:text-base leading-relaxed">
-                {selected.message}
-              </p>
-
-              <div className="flex flex-wrap gap-3">
-                {!selected.read && (
-                  <button
-                    onClick={() => markAsRead(selected._id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
-                  >
-                    <FaCheckCircle /> Mark Read
-                  </button>
-                )}
-
-                <button
-                  onClick={() => deleteMessage(selected._id)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm"
-                >
-                  <FaTrash /> Delete
-                </button>
-              </div>
-            </motion.div>
-          ) : (
-            <div className="text-center text-gray-500 mt-10 lg:mt-20">
-             
+              ))}
             </div>
-          )}
-        </div>
 
-      </main>
-    </div>
-  </div>
-);
+            <div className="space-y-3 lg:max-h-[calc(100vh-17rem)] lg:overflow-y-auto lg:pr-1">
+              {visible.length === 0 ? (
+                <div className="bg-white rounded-xl shadow p-6 text-center text-sm text-gray-500">
+                  Koi unread message nahi hai.
+                </div>
+              ) : (
+                visible.map((msg, i) => (
+                  <motion.div
+                    key={msg._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i, 10) * 0.04 }}
+                    onClick={() => setSelectedId(msg._id)}
+                    className={`p-4 rounded-xl shadow-sm cursor-pointer border transition hover:shadow-md ${
+                      msg._id === selectedId
+                        ? "border-blue-600 bg-white"
+                        : msg.read
+                        ? "bg-white border-gray-200"
+                        : "bg-blue-50 border-blue-200"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center gap-2">
+                      <h3 className="font-semibold text-sm md:text-base truncate">
+                        {msg.name}
+                      </h3>
+                      {!msg.read && (
+                        <span className="shrink-0 text-[11px] font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                          New
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-gray-500 truncate">{msg.email}</p>
+                    <p className="text-sm text-gray-600 truncate mt-1">{msg.message}</p>
+                    <p className="text-[11px] text-gray-400 mt-2">
+                      {formatDate(msg.createdAt || msg.date)}
+                    </p>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* MESSAGE VIEW */}
+          <div className={`lg:col-span-2 ${selected ? "block" : "hidden lg:block"}`}>
+            {selected ? (
+              <motion.div
+                key={selected._id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white p-5 md:p-7 rounded-2xl shadow-lg"
+              >
+                {/* Back (mobile) */}
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="lg:hidden flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4"
+                >
+                  <FaArrowLeft /> Back to messages
+                </button>
+
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <h2 className="text-xl md:text-2xl font-bold break-words">
+                    {selected.name}
+                  </h2>
+
+                  <span
+                    className={`shrink-0 text-xs font-semibold px-3 py-1 rounded-full ${
+                      selected.read
+                        ? "bg-gray-100 text-gray-500"
+                        : "bg-blue-100 text-blue-600"
+                    }`}
+                  >
+                    {selected.read ? "Read" : "New"}
+                  </span>
+                </div>
+
+                <p className="text-xs md:text-sm text-gray-500 mb-6 break-all">
+                  {selected.email}
+                  {(selected.createdAt || selected.date) &&
+                    ` • ${formatDate(selected.createdAt || selected.date)}`}
+                </p>
+
+                <p className="text-gray-700 mb-8 text-sm md:text-base leading-relaxed whitespace-pre-line break-words">
+                  {selected.message}
+                </p>
+
+                <div className="flex flex-wrap gap-3">
+                  <a
+                    href={`mailto:${selected.email}?subject=${encodeURIComponent(
+                      "Re: Your message to DevelopersHub"
+                    )}`}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition"
+                  >
+                    <FaReply /> Reply
+                  </a>
+
+                  {!selected.read && (
+                    <button
+                      onClick={() => markAsRead(selected._id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition"
+                    >
+                      <FaCheckCircle /> Mark Read
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => deleteMessage(selected._id)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition"
+                  >
+                    <FaTrash /> Delete
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow p-10 text-center text-gray-400 hidden lg:flex flex-col items-center justify-center min-h-[320px]">
+                <FaEnvelopeOpenText className="text-4xl mb-3" />
+                <p>Message will show in this place.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </AdminLayout>
+  );
 };
 
 export default AdminContacts;
